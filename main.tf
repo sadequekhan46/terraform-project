@@ -52,7 +52,5 @@ resource "aws_db_instance" "mydb" {
   username          = "admin"
   password          = "password123"
 
-  skip_final_snapshot       = false
-  final_snapshot_identifier = "my-final-db-snapshot"
+  skip_final_snapshot = true
 }
-
