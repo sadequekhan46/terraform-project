@@ -45,10 +45,14 @@ resource "aws_subnet" "public_2" {
   availability_zone = "us-east-1b"
   cidr_block        = "10.0.4.0/24"
 }
-resource "aws_db_instance" "db" {
-  engine         = "mysql"
-  instance_class = "db.t3.micro"
+resource "aws_db_instance" "mydb" {
   allocated_storage = 20
-  username = "admin"
-  password = "password123"
+  engine            = "mysql"
+  instance_class    = "db.t3.micro"
+  username          = "admin"
+  password          = "password123"
+
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "my-final-db-snapshot"
 }
+
