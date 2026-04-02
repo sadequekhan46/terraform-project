@@ -34,12 +34,16 @@ resource "aws_instance" "infrastructure-as-code" {
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.private.id
 }
+resource "aws_key_pair" "iac" {
+  key_name   = "iac-key-pair"
+  public_key = file("~/.ssh/id_rsa.pub")  # path to your public key
+}
 resource "aws_launch_template" "web" {
   name_prefix   = "web-server-"
   image_id      = "ami-0c02fb55956c7d316"   # Use your correct US-East-1 AMI
   instance_type = "t2.micro"
 
-  key_name = "iac-key-pair"   # optional
+  key_name = aws_key_pair.iac.key_name
 
   tag_specifications {
     resource_type = "instance"
