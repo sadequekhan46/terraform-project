@@ -34,6 +34,21 @@ resource "aws_instance" "infrastructure-as-code" {
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.private.id
 }
+resource "aws_launch_template" "app" {
+  image_id      = "ami-0abcdef1234567890"
+  instance_type = "t2.micro"
+}
+resource "aws_autoscaling_group" "asg" {
+  desired_capacity = 2
+  max_size         = 5
+  min_size         = 2
+}
+resource "aws_lb" "app_lb" {
+  name               = "app-lb"
+  internal           = false
+  load_balancer_type = "application"
+}
+
 resource "aws_subnet" "public_1" {
   vpc_id            = aws_vpc.main.id
   availability_zone = "us-east-1a"
