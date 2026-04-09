@@ -32,7 +32,7 @@ resource "aws_security_group" "web_sg" {
 resource "aws_instance" "infrastructure-as-code" {
   ami           = "ami-0c02fb55956c7d316"
   instance_type = "t3.micro"
-  subnet_id     = aws_subnet.private.id
+  subnet_id     = aws_subnet.public.id
 }
 resource "aws_key_pair" "iac" {
   key_name   = "iac-key-pair"
