@@ -241,7 +241,11 @@ resource "aws_db_instance" "mydb" {
 # =========================
 
 resource "aws_s3_bucket" "cloudtrail_logs" {
-  bucket = "my-cloudtrail-logs-bucket-12345"
+  bucket = "khan-cloudtrail-${random_id.bucket_id.hex}"
+}
+
+resource "random_id" "bucket_id" {
+  byte_length = 4
 }
 
 resource "aws_s3_bucket_policy" "cloudtrail_policy" {
