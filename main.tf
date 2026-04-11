@@ -11,7 +11,7 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   vpc_id     = aws_vpc.main.id
   cidr_block = "10.0.2.0/24"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -79,6 +79,8 @@ resource "aws_instance" "infrastructure-as-code" {
 
   key_name = aws_key_pair.iac.key_name
 
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+
   vpc_security_group_ids = [aws_security_group.web_sg.id]    
   associate_public_ip_address = true
 }
@@ -86,12 +88,65 @@ resource "aws_key_pair" "iac" {
   key_name   = "iac-key-pair"
   public_key = file("C:/Users/Pho3nix_1d/.ssh/id_ed25519.pub")
 }
+# =========================
+# CLOUDWATCH SETUP
+# =========================
+
+resource "aws_cloudwatch_log_group" "app_logs" {
+  name              = "/ec2/app-logs"
+  retention_in_days = 7
+}
+
+resource "aws_iam_role" "ec2_cloudwatch_role" {
+  name = "ec2-cloudwatch-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cw_attach" {
+  role       = aws_iam_role.ec2_cloudwatch_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2-cloudwatch-profile"
+  role = aws_iam_role.ec2_cloudwatch_role.name
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
+  alarm_name          = "high-cpu-usage"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 70
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+}
+
 resource "aws_launch_template" "web" {
   name_prefix   = "web-server-"
-  image_id      = "ami-0c02fb55956c7d316"   # Use your correct US-East-1 AMI
+  image_id      = "ami-0c02fb55956c7d316"
   instance_type = "t2.micro"
 
   key_name = aws_key_pair.iac.key_name
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2_profile.name
+  }
 
   tag_specifications {
     resource_type = "instance"
@@ -180,4 +235,52 @@ resource "aws_db_instance" "mydb" {
   password          = "password123"
 
   skip_final_snapshot = true
+}
+# =========================
+# CLOUDTRAIL SETUP
+# =========================
+
+resource "aws_s3_bucket" "cloudtrail_logs" {
+  bucket = "my-cloudtrail-logs-bucket-12345"
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail_policy" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid = "AWSCloudTrailAclCheck",
+        Effect = "Allow",
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        },
+        Action = "s3:GetBucketAcl",
+        Resource = aws_s3_bucket.cloudtrail_logs.arn
+      },
+      {
+        Sid = "AWSCloudTrailWrite",
+        Effect = "Allow",
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        },
+        Action = "s3:PutObject",
+        Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/*",
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl" = "bucket-owner-full-control"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_cloudtrail" "main" {
+  name                          = "main-cloudtrail"
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.bucket
+  include_global_service_events = true
+  is_multi_region_trail         = true
+  enable_logging                = true
 }
